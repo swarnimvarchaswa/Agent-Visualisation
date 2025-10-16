@@ -143,6 +143,8 @@ const AgentVisualizer: React.FC<AgentVisualizerProps> = ({ agents }) => {
 
     filteredAgents.forEach(agent => {
       if (!agent.userType) return;
+      // Skip agents without valid coordinates
+      if (agent.noOfEnquiries == null || agent.noOfInventories == null) return;
       
       const posKey = `${agent.noOfEnquiries}_${agent.noOfInventories}`;
       if (!positionMap.has(posKey)) {
@@ -154,15 +156,17 @@ const AgentVisualizer: React.FC<AgentVisualizerProps> = ({ agents }) => {
     // Create data points with overlap info
     filteredAgents.forEach(agent => {
       if (!agent.userType) return;
+      // Skip agents without valid coordinates
+      if (agent.noOfEnquiries == null || agent.noOfInventories == null) return;
       
       const posKey = `${agent.noOfEnquiries}_${agent.noOfInventories}`;
       const agentsAtPosition = positionMap.get(posKey) || [];
       
       const dataPoint: ChartDataPoint & { overlapCount?: number; allAgents?: IAgent[] } = {
-        name: agent.name,
-        kamName: agent.kamName,
-        noOfInventories: agent.noOfInventories,
-        noOfEnquiries: agent.noOfEnquiries,
+        name: agent.name || 'Unknown',
+        kamName: agent.kamName || 'N/A',
+        noOfInventories: agent.noOfInventories || 0,
+        noOfEnquiries: agent.noOfEnquiries || 0,
         userType: agent.userType,
         cpId: agent.cpId,
         overlapCount: agentsAtPosition.length,

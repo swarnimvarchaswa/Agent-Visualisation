@@ -1,17 +1,17 @@
 export interface IAgent {
   cpId: string;
-  name: string;
-  kamName: string;
-  kamId: string;
-  userType: 'premium' | 'trial' | 'basic';
-  noOfInventories: number;
-  noOfEnquiries: number;
-  agentStatus: string;
-  phoneNumber: string;
+  name?: string;
+  kamName?: string;
+  kamId?: string;
+  userType?: string;
+  noOfInventories?: number;
+  noOfEnquiries?: number;
+  agentStatus?: string;
+  phoneNumber?: string;
   emailAddress?: string;
   firmName?: string;
-  activity: string;
-  verified: boolean;
+  activity?: string;
+  verified?: boolean;
   lastSeen?: number;
   areaOfOperation?: string[];
   enquiryReceived?: string[];
@@ -22,6 +22,7 @@ export interface IAgent {
     sold: number;
     hold: number;
   };
+  [key: string]: any; // Allow any additional properties from JSON
 }
 
 export interface AgentData {
