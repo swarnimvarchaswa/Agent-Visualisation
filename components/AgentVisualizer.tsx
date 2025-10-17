@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   ScatterChart,
   Scatter,
@@ -42,6 +42,51 @@ const AgentVisualizer: React.FC<AgentVisualizerProps> = ({ agents }) => {
   const [appliedYMax, setAppliedYMax] = useState<string>('');
   
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Pinned tooltip state
+  const [pinnedAgents, setPinnedAgents] = useState<IAgent[] | null>(null);
+  const [pinnedPosition, setPinnedPosition] = useState<{ x: number; y: number } | null>(null);
+  const [suppressHoverTooltip, setSuppressHoverTooltip] = useState(false);
+  const pinnedTooltipRef = useRef<HTMLDivElement>(null);
+  const suppressTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Helper function to close pinned tooltip
+  const closePinnedTooltip = () => {
+    setPinnedAgents(null);
+    setPinnedPosition(null);
+    setSuppressHoverTooltip(true);
+    
+    // Clear any existing timeout
+    if (suppressTimeoutRef.current) {
+      clearTimeout(suppressTimeoutRef.current);
+    }
+    
+    // Re-enable hover tooltip after a delay
+    suppressTimeoutRef.current = setTimeout(() => {
+      setSuppressHoverTooltip(false);
+    }, 500);
+  };
+
+  // Close pinned tooltip when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (pinnedTooltipRef.current && !pinnedTooltipRef.current.contains(event.target as Node)) {
+        closePinnedTooltip();
+      }
+    };
+
+    if (pinnedAgents) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      // Clear timeout on unmount
+      if (suppressTimeoutRef.current) {
+        clearTimeout(suppressTimeoutRef.current);
+      }
+    };
+  }, [pinnedAgents]);
 
   // Extract unique KAM names
   const kamNames = useMemo(() => {
@@ -187,15 +232,18 @@ const AgentVisualizer: React.FC<AgentVisualizerProps> = ({ agents }) => {
     return { premium, trial, basic };
   }, [filteredAgents]);
 
-  // Custom tooltip - shows all agents at same position
+  // Custom tooltip - shows all agents at same position (hover only if not pinned)
   const CustomTooltip = ({ active, payload }: any) => {
+    // Don't show hover tooltip if there's a pinned tooltip or if suppressed
+    if (pinnedAgents || suppressHoverTooltip) return null;
+    
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       const allAgents = data.allAgents || [data];
       const overlapCount = data.overlapCount || 1;
       
       return (
-        <div className="bg-white p-3 rounded-lg shadow-xl border-2 border-gray-300 max-h-96 overflow-y-auto">
+        <div className="bg-white p-3 rounded-lg shadow-xl border-2 border-gray-300 max-h-96 overflow-y-auto pointer-events-none">
           {/* Header with position info */}
           <div className="mb-2 pb-2 border-b border-gray-200">
             <p className="text-xs font-semibold text-gray-700">
@@ -206,11 +254,14 @@ const AgentVisualizer: React.FC<AgentVisualizerProps> = ({ agents }) => {
                 {overlapCount} Agents at this location
               </p>
             )}
+            <p className="text-xs text-blue-600 mt-1 italic">
+              Click to pin
+            </p>
           </div>
 
           {/* List all agents */}
           <div className="space-y-3">
-            {allAgents.map((agent: IAgent, idx: number) => (
+            {allAgents.slice(0, 3).map((agent: IAgent, idx: number) => (
               <div 
                 key={agent.cpId || idx} 
                 className={`pb-2 ${idx !== allAgents.length - 1 ? 'border-b border-gray-100' : ''}`}
@@ -228,6 +279,11 @@ const AgentVisualizer: React.FC<AgentVisualizerProps> = ({ agents }) => {
                 </div>
               </div>
             ))}
+            {allAgents.length > 3 && (
+              <p className="text-xs text-gray-500 italic">
+                +{allAgents.length - 3} more... (click to see all)
+              </p>
+            )}
           </div>
         </div>
       );
@@ -287,6 +343,12 @@ const AgentVisualizer: React.FC<AgentVisualizerProps> = ({ agents }) => {
       {/* Chart Section - Maximized */}
       <div 
         className="flex-1 bg-white m-1 rounded shadow p-2 relative overflow-hidden"
+        onClick={(e) => {
+          // Close pinned tooltip when clicking on empty space
+          if (e.target === e.currentTarget || (e.target as HTMLElement).closest('.chart-container')) {
+            closePinnedTooltip();
+          }
+        }}
       >
         {/* Loading Overlay */}
         {isLoading && (
@@ -297,6 +359,88 @@ const AgentVisualizer: React.FC<AgentVisualizerProps> = ({ agents }) => {
             </div>
           </div>
         )}
+
+        {/* Pinned Tooltip Modal */}
+        {pinnedAgents && pinnedPosition && (() => {
+          // Calculate position to keep tooltip within viewport
+          const tooltipWidth = 400;
+          const tooltipMaxHeight = window.innerHeight * 0.8; // 80vh
+          const padding = 10; // padding from edges
+          
+          let left = pinnedPosition.x;
+          let top = pinnedPosition.y;
+          
+          // Adjust horizontal position if going off right edge
+          if (left + tooltipWidth > window.innerWidth - padding) {
+            left = window.innerWidth - tooltipWidth - padding;
+          }
+          // Ensure not off left edge
+          if (left < padding) {
+            left = padding;
+          }
+          
+          // Adjust vertical position if going off bottom edge
+          if (top + tooltipMaxHeight > window.innerHeight - padding) {
+            top = window.innerHeight - tooltipMaxHeight - padding;
+          }
+          // Ensure not off top edge
+          if (top < padding) {
+            top = padding;
+          }
+          
+          return (
+            <div 
+              ref={pinnedTooltipRef}
+              className="fixed bg-white p-4 rounded-lg shadow-2xl border-2 border-blue-500 max-h-[80vh] overflow-y-auto z-50"
+              style={{
+                left: `${left}px`,
+                top: `${top}px`,
+                maxWidth: '400px',
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+            {/* Close button */}
+            <button
+              onClick={closePinnedTooltip}
+              className="absolute top-2 right-2 text-gray-500 hover:text-gray-700 font-bold text-lg"
+            >
+              ×
+            </button>
+
+            {/* Header */}
+            <div className="mb-3 pb-2 border-b border-gray-200 pr-6">
+              <p className="text-sm font-bold text-blue-600">
+                {pinnedAgents.length} Agent{pinnedAgents.length > 1 ? 's' : ''} at this location
+              </p>
+              <p className="text-xs text-gray-600 mt-1">
+                Properties: {pinnedAgents[0]?.noOfInventories || 0}, Enquiries: {pinnedAgents[0]?.noOfEnquiries || 0}
+              </p>
+            </div>
+
+            {/* Agent List */}
+            <div className="space-y-3">
+              {pinnedAgents.map((agent: IAgent, idx: number) => (
+                <div 
+                  key={agent.cpId || idx} 
+                  className={`pb-3 ${idx !== pinnedAgents.length - 1 ? 'border-b border-gray-100' : ''}`}
+                >
+                  <p className="font-bold text-gray-900 text-sm mb-1">
+                    {agent.name || 'Unknown'}
+                  </p>
+                  <div className="text-xs text-gray-600 space-y-0.5">
+                    <p><span className="font-semibold">CP ID:</span> {agent.cpId}</p>
+                    <p><span className="font-semibold">KAM:</span> {agent.kamName || 'N/A'}</p>
+                    <p>
+                      <span className="font-semibold">Type:</span>{' '}
+                      <span className="capitalize font-medium">{agent.userType || 'N/A'}</span>
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          );
+        })()}
 
         {/* Axis Range Controls - Top Right Floating */}
         <div className="absolute top-2 right-2 z-10 bg-white/95 backdrop-blur-sm border border-gray-300 rounded shadow-lg p-2 text-xs space-y-1.5">
@@ -368,7 +512,15 @@ const AgentVisualizer: React.FC<AgentVisualizerProps> = ({ agents }) => {
         </div>
 
         {/* Chart Container */}
-        <div className="w-full h-full">
+        <div 
+          className="w-full h-full"
+          onMouseMove={() => {
+            // Clear suppression when mouse moves (helps reset tooltip state)
+            if (suppressHoverTooltip && !pinnedAgents) {
+              setSuppressHoverTooltip(false);
+            }
+          }}
+        >
           <ResponsiveContainer width="100%" height="100%">
           <ScatterChart
             margin={{
@@ -411,7 +563,9 @@ const AgentVisualizer: React.FC<AgentVisualizerProps> = ({ agents }) => {
               stroke="#6b7280"
               tick={{ fontSize: 10 }}
             />
-            <Tooltip content={<CustomTooltip />} cursor={{ strokeDasharray: '3 3' }} />
+            {!suppressHoverTooltip && (
+              <Tooltip content={<CustomTooltip />} cursor={{ strokeDasharray: '3 3' }} />
+            )}
             
             {/* Premium agents - Green (dark border when overlapping) */}
             {chartData.premium.length > 0 && (
@@ -433,6 +587,12 @@ const AgentVisualizer: React.FC<AgentVisualizerProps> = ({ agents }) => {
                       opacity={1}
                       stroke={overlapCount > 1 ? "#14532d" : "none"}
                       strokeWidth={strokeWidth}
+                      style={{ cursor: 'pointer' }}
+                      onClick={(e: any) => {
+                        e.stopPropagation();
+                        setPinnedAgents(payload.allAgents || [payload]);
+                        setPinnedPosition({ x: e.clientX, y: e.clientY });
+                      }}
                     />
                   );
                 }}
@@ -459,6 +619,12 @@ const AgentVisualizer: React.FC<AgentVisualizerProps> = ({ agents }) => {
                       opacity={1}
                       stroke={overlapCount > 1 ? "#9a3412" : "none"}
                       strokeWidth={strokeWidth}
+                      style={{ cursor: 'pointer' }}
+                      onClick={(e: any) => {
+                        e.stopPropagation();
+                        setPinnedAgents(payload.allAgents || [payload]);
+                        setPinnedPosition({ x: e.clientX, y: e.clientY });
+                      }}
                     />
                   );
                 }}
@@ -485,6 +651,12 @@ const AgentVisualizer: React.FC<AgentVisualizerProps> = ({ agents }) => {
                       opacity={1}
                       stroke={overlapCount > 1 ? "#374151" : "none"}
                       strokeWidth={strokeWidth}
+                      style={{ cursor: 'pointer' }}
+                      onClick={(e: any) => {
+                        e.stopPropagation();
+                        setPinnedAgents(payload.allAgents || [payload]);
+                        setPinnedPosition({ x: e.clientX, y: e.clientY });
+                      }}
                     />
                   );
                 }}
