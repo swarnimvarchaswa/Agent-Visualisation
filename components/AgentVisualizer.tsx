@@ -47,11 +47,22 @@ const AgentVisualizer: React.FC<AgentVisualizerProps> = ({ agents }) => {
   const [pinnedAgents, setPinnedAgents] = useState<IAgent[] | null>(null);
   const [pinnedPosition, setPinnedPosition] = useState<{ x: number; y: number } | null>(null);
   const [suppressHoverTooltip, setSuppressHoverTooltip] = useState(false);
+  const [suppressedCoordinates, setSuppressedCoordinates] = useState<string | null>(null);
   const pinnedTooltipRef = useRef<HTMLDivElement>(null);
   const suppressTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastMousePositionRef = useRef<{ x: number; y: number } | null>(null);
 
   // Helper function to close pinned tooltip
   const closePinnedTooltip = () => {
+    // Store the coordinates that should be suppressed
+    if (pinnedAgents && pinnedAgents.length > 0) {
+      const coords = `${pinnedAgents[0].noOfEnquiries}_${pinnedAgents[0].noOfInventories}`;
+      setSuppressedCoordinates(coords);
+    }
+    
+    // Store current mouse position to compare later
+    lastMousePositionRef.current = pinnedPosition;
+    
     setPinnedAgents(null);
     setPinnedPosition(null);
     setSuppressHoverTooltip(true);
@@ -64,7 +75,9 @@ const AgentVisualizer: React.FC<AgentVisualizerProps> = ({ agents }) => {
     // Re-enable hover tooltip after a delay
     suppressTimeoutRef.current = setTimeout(() => {
       setSuppressHoverTooltip(false);
-    }, 500);
+      setSuppressedCoordinates(null);
+      lastMousePositionRef.current = null;
+    }, 300);
   };
 
   // Close pinned tooltip when clicking outside
@@ -241,6 +254,10 @@ const AgentVisualizer: React.FC<AgentVisualizerProps> = ({ agents }) => {
       const data = payload[0].payload;
       const allAgents = data.allAgents || [data];
       const overlapCount = data.overlapCount || 1;
+      
+      // Check if this is the suppressed coordinate position
+      const currentCoords = `${data.noOfEnquiries}_${data.noOfInventories}`;
+      if (suppressedCoordinates === currentCoords) return null;
       
       return (
         <div className="bg-white p-3 rounded-lg shadow-xl border-2 border-gray-300 max-h-96 overflow-y-auto pointer-events-none">
@@ -514,10 +531,22 @@ const AgentVisualizer: React.FC<AgentVisualizerProps> = ({ agents }) => {
         {/* Chart Container */}
         <div 
           className="w-full h-full"
-          onMouseMove={() => {
-            // Clear suppression when mouse moves (helps reset tooltip state)
-            if (suppressHoverTooltip && !pinnedAgents) {
-              setSuppressHoverTooltip(false);
+          onMouseMove={(e) => {
+            // Clear suppression if mouse has moved away from the original position
+            if (suppressedCoordinates && lastMousePositionRef.current) {
+              const dx = Math.abs(e.clientX - lastMousePositionRef.current.x);
+              const dy = Math.abs(e.clientY - lastMousePositionRef.current.y);
+              const distance = Math.sqrt(dx * dx + dy * dy);
+              
+              // If moved more than 30 pixels, clear suppression
+              if (distance > 30) {
+                setSuppressHoverTooltip(false);
+                setSuppressedCoordinates(null);
+                lastMousePositionRef.current = null;
+                if (suppressTimeoutRef.current) {
+                  clearTimeout(suppressTimeoutRef.current);
+                }
+              }
             }
           }}
         >
@@ -563,9 +592,7 @@ const AgentVisualizer: React.FC<AgentVisualizerProps> = ({ agents }) => {
               stroke="#6b7280"
               tick={{ fontSize: 10 }}
             />
-            {!suppressHoverTooltip && (
-              <Tooltip content={<CustomTooltip />} cursor={{ strokeDasharray: '3 3' }} />
-            )}
+            <Tooltip content={<CustomTooltip />} cursor={{ strokeDasharray: '3 3' }} />
             
             {/* Premium agents - Green (dark border when overlapping) */}
             {chartData.premium.length > 0 && (
