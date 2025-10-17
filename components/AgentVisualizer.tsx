@@ -247,17 +247,49 @@ const AgentVisualizer: React.FC<AgentVisualizerProps> = ({ agents }) => {
 
   // Count agents in the current visible range
   const visibleAgentsCount = useMemo(() => {
+    // If using default axis ranges (no filter applied), count all filtered agents
+    const isDefaultRange = appliedXMin === '' && appliedXMax === '' && 
+                          appliedYMin === '' && appliedYMax === '';
+    
+    if (isDefaultRange) {
+      // Return total count of filtered agents
+      return filteredAgents.length;
+    }
+
+    // When range is specified, count agents within that range
     const xMin = axisDomain.xMin;
     const xMax = axisDomain.xMax;
     const yMin = axisDomain.yMin;
     const yMax = axisDomain.yMax;
 
-    return filteredAgents.filter(agent => {
-      const enq = agent.noOfEnquiries || 0;
-      const inv = agent.noOfInventories || 0;
-      return enq >= xMin && enq <= xMax && inv >= yMin && inv <= yMax;
-    }).length;
-  }, [filteredAgents, axisDomain]);
+    // Use a Set to track unique positions we've already counted
+    const countedPositions = new Set<string>();
+    let count = 0;
+    
+    // Helper function to count agents at a position
+    const countFromDataPoints = (dataPoints: any[]) => {
+      dataPoints.forEach(point => {
+        if (point.noOfEnquiries >= xMin && point.noOfEnquiries <= xMax &&
+            point.noOfInventories >= yMin && point.noOfInventories <= yMax) {
+          const posKey = `${point.noOfEnquiries}_${point.noOfInventories}`;
+          
+          // Only count this position once (since allAgents contains all agents at this position)
+          if (!countedPositions.has(posKey)) {
+            countedPositions.add(posKey);
+            // Count all agents at this position
+            count += (point.allAgents?.length || 1);
+          }
+        }
+      });
+    };
+    
+    // Count from all data types
+    countFromDataPoints(chartData.premium);
+    countFromDataPoints(chartData.trial);
+    countFromDataPoints(chartData.basic);
+
+    return count;
+  }, [chartData, axisDomain, appliedXMin, appliedXMax, appliedYMin, appliedYMax, filteredAgents]);
 
   // Custom tooltip - shows all agents at same position (hover only if not pinned)
   const CustomTooltip = ({ active, payload }: any) => {
