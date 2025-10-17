@@ -245,6 +245,20 @@ const AgentVisualizer: React.FC<AgentVisualizerProps> = ({ agents }) => {
     return { premium, trial, basic };
   }, [filteredAgents]);
 
+  // Count agents in the current visible range
+  const visibleAgentsCount = useMemo(() => {
+    const xMin = axisDomain.xMin;
+    const xMax = axisDomain.xMax;
+    const yMin = axisDomain.yMin;
+    const yMax = axisDomain.yMax;
+
+    return filteredAgents.filter(agent => {
+      const enq = agent.noOfEnquiries || 0;
+      const inv = agent.noOfInventories || 0;
+      return enq >= xMin && enq <= xMax && inv >= yMin && inv <= yMax;
+    }).length;
+  }, [filteredAgents, axisDomain]);
+
   // Custom tooltip - shows all agents at same position (hover only if not pinned)
   const CustomTooltip = ({ active, payload }: any) => {
     // Don't show hover tooltip if there's a pinned tooltip or if suppressed
@@ -525,6 +539,16 @@ const AgentVisualizer: React.FC<AgentVisualizerProps> = ({ agents }) => {
                 className="w-14 px-1 py-0.5 text-[10px] border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-green-500"
               />
             </div>
+          </div>
+          
+          {/* Agent Count Display */}
+          <div className="mt-2 pt-2 border-t border-gray-200">
+            <p className="text-[10px] font-semibold text-gray-700">
+              Agents in Range:
+            </p>
+            <p className="text-sm font-bold text-blue-600">
+              {visibleAgentsCount}
+            </p>
           </div>
         </div>
 
