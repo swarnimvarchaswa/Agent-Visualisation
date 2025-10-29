@@ -15,6 +15,7 @@ export interface IAgent {
   lastSeen?: number;
   areaOfOperation?: string[];
   enquiryReceived?: string[];
+  enquiryDid?: string[];
   myInventories?: string[];
   inventoryStatus?: {
     delisted: number;

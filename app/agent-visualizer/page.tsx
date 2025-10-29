@@ -6,23 +6,15 @@ export default function AgentVisualizerPage() {
   // Normalize raw JSON to ensure consistent fields for all agents
   const agentsArray: IAgent[] = Object.entries(agentsData as Record<string, any>)
     .map(([cpId, raw]) => {
-      const noOfInventories: number =
-        typeof raw?.noOfInventories === 'number'
-          ? raw.noOfInventories
-          : typeof raw?.noOfinventories === 'number'
-          ? raw.noOfinventories
-          : Array.isArray(raw?.myInventories)
-          ? raw.myInventories.length
-          : 0;
+      // Count properties from myInventories array
+      const noOfInventories: number = Array.isArray(raw?.myInventories)
+        ? raw.myInventories.length
+        : 0;
 
-      const noOfEnquiries: number =
-        typeof raw?.noOfEnquiries === 'number'
-          ? raw.noOfEnquiries
-          : Array.isArray(raw?.enquiryDid)
-          ? raw.enquiryDid.length
-          : Array.isArray(raw?.enquiryReceived)
-          ? raw.enquiryReceived.length
-          : 0;
+      // Count enquiries from enquiryDid array
+      const noOfEnquiries: number = Array.isArray(raw?.enquiryDid)
+        ? raw.enquiryDid.length
+        : 0;
 
       const normalizedUserType: string = (raw?.userType ?? 'basic').toString().toLowerCase();
 
