@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import Link from 'next/link';
 import {
   ScatterChart,
   Scatter,
@@ -359,7 +360,10 @@ const AgentVisualizer: React.FC<AgentVisualizerProps> = ({ agents }) => {
       {/* Header with Filters - Minimal */}
       <div className="bg-white shadow-sm px-4 py-2 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <h1 className="text-lg font-bold text-gray-800">Agent Analytics</h1>
+          <Link href="/" className="text-blue-600 hover:text-blue-700 text-sm">
+            ← Home
+          </Link>
+          <h1 className="text-lg font-bold text-gray-800">Agent Visualizer</h1>
           <div className="text-xs text-gray-600">
             <span className="font-semibold">{filteredAgents.length}</span> agents
           </div>

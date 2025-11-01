@@ -1,0 +1,31 @@
+{
+  "totalAgentsWithFsmToken": 862,
+  "categorizedUsingEnquiryPropertyData": 652,
+  "categorizedUsingAreaOfOperation": 210,
+  "breakdown": {
+    "North Bangalore": {
+      "count": 225,
+      "percentage": "26.10%"
+    },
+    "South Bangalore": {
+      "count": 113,
+      "percentage": "13.11%"
+    },
+    "East Bangalore": {
+      "count": 339,
+      "percentage": "39.33%"
+    },
+    "West Bangalore": {
+      "count": 16,
+      "percentage": "1.86%"
+    },
+    "Central Bangalore": {
+      "count": 15,
+      "percentage": "1.74%"
+    },
+    "PAN Bangalore": {
+      "count": 154,
+      "percentage": "17.87%"
+    }
+  }
+}
